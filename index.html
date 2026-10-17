@@ -39,13 +39,8 @@
   .seg button{border:none;border-radius:0;border-right:1px solid #d8e9e3}
   .seg button:last-child{border-right:none}
 
-  /* page layout: centered content body with static TOC sidebar */
-  .page-wrap{display:flex;max-width:1200px;margin:0 auto;padding:0 20px 40px;gap:24px;align-items:flex-start}
-  #toc{position:sticky;top:66px;width:220px;flex:none;display:block;background:#fff;border:1px solid #eaf1ef;
-    border-radius:14px;overflow-y:auto;max-height:calc(100vh - 80px);padding:14px 10px 20px;
-    font-family:"Microsoft YaHei",sans-serif;z-index:25;box-shadow:var(--shadow)}
-  body.nav #toc{display:none}
-  .page-main{flex:1;min-width:0;max-width:880px;margin:0 auto}
+  /* page layout: centered content body */
+  .page-main{max-width:880px;margin:0 auto;padding:14px 20px 40px}
 
   /* section tabs */
   .tabs{display:flex;gap:10px;padding:14px 0 0;flex-wrap:wrap;font-family:"Microsoft YaHei",sans-serif}
@@ -83,24 +78,11 @@
     background:var(--mint-line)}
   .kb-line.lead{font-weight:600}
 
-  /* sidebar TOC */
-  #toc .toc-h{font-size:12px;color:var(--sub);letter-spacing:3px;padding:2px 10px 12px;font-weight:700}
-  #toc .toc-sec{margin-bottom:8px}
-  #toc .toc-sec-title{font-size:14px;font-weight:700;color:var(--mint-d);padding:7px 10px;border-radius:8px;cursor:pointer;
-    border-left:3px solid transparent;transition:.15s}
-  #toc .toc-sec-title:hover{background:var(--mint-l)}
-  #toc .toc-sec-title.on{background:var(--mint-l);border-left-color:var(--mint)}
-  #toc .toc-page{font-size:13px;color:#5b6b66;padding:5px 10px 5px 20px;border-radius:8px;cursor:pointer;
-    transition:.15s}
-  #toc .toc-page:hover{background:#f3f8f6;color:var(--mint-d)}
-  #toc .toc-page.on{background:var(--mint-l);color:var(--mint-d);font-weight:700}
-
   @media(max-width:860px){
-    .page-wrap{flex-direction:column;gap:16px;padding:0 14px 40px}
-    #toc{position:static;width:100%;max-height:none;display:none}
-    body.nav #toc{display:block}
-    .page-main{max-width:none;width:100%}
-    main{padding-top:10px}
+    .page-main{padding:10px 14px 40px}
+    /* 手机/微信端：两个分类并列显示 */
+    .tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 0 0}
+    .tab{text-align:center;white-space:normal;line-height:1.35;font-size:13.5px;padding:9px 10px}
   }
 
   /* blanks */
@@ -142,7 +124,7 @@
   .progress i{display:block;height:100%;background:linear-gradient(90deg,var(--mint),#5fd0a8);width:0;transition:.25s}
   @media(max-width:560px){
     .brand h1{font-size:16px}.kb-module{font-size:14px}
-    .page-wrap{padding:0 12px 40px}
+    .page-main{padding:8px 12px 40px}
   }
 </style>
 </head>
@@ -164,12 +146,8 @@
     </div>
     <button id="fsMinus">A−</button>
     <button id="fsPlus">A＋</button>
-    <button id="btnToc">☰ 目录</button>
   </div>
 </header>
-
-<div class="page-wrap">
-<aside id="toc"></aside>
 
 <div class="page-main">
 <div class="tabs" id="tabs"></div>
@@ -184,7 +162,6 @@
   <div class="progress"><i id="bar"></i></div>
 </main>
 </div>
-</div>
 
 <div class="pager">
   <button id="prev">← 上一页</button>
@@ -198,7 +175,6 @@
 <script>
 const DATA = window.KB_DATA;
 const CARDS_PER_PAGE = 20;
-const tocEl = document.getElementById('toc');
 let page = 1, totalPages = 1, allShown = false, fontSize = 15;
 
 // flatten cards with section ref
@@ -261,39 +237,6 @@ function renderNote(){
     DATA.intro.map(t=>`<li>${esc(t)}</li>`).join('');
 }
 
-function buildTOC(){
-  const secPages = {};
-  flat.forEach((item, idx) => {
-    const pg = Math.floor(idx / CARDS_PER_PAGE) + 1;
-    const si = item.si, num = item.card.num;
-    if(!secPages[si]) secPages[si] = {};
-    if(!secPages[si][pg]) secPages[si][pg] = {min:num, max:num};
-    else { secPages[si][pg].min = Math.min(secPages[si][pg].min, num);
-           secPages[si][pg].max = Math.max(secPages[si][pg].max, num); }
-  });
-  let html = '<div class="toc-h">目录 / 大纲</div>';
-  DATA.sections.forEach((sec, si) => {
-    const pages = secPages[si]; if(!pages) return;
-    const ents = Object.keys(pages).map(Number).sort((a,b)=>a-b)
-                   .map(pg => ({pg, min:pages[pg].min, max:pages[pg].max}));
-    html += `<div class="toc-sec"><div class="toc-sec-title" data-si="${si}" data-page="${ents[0].pg}">${esc(sec.title)}</div><div class="toc-pages">`;
-    html += ents.map(e => `<div class="toc-page" data-page="${e.pg}">第 ${e.pg} 页 · 第 ${e.min}–${e.max} 条</div>`).join('');
-    html += '</div></div>';
-  });
-  tocEl.innerHTML = html;
-  tocEl.querySelectorAll('.toc-sec-title, .toc-page').forEach(el => {
-    el.onclick = () => { page = +el.dataset.page; draw();
-      if(window.innerWidth < 981) document.body.classList.remove('nav'); };
-  });
-}
-
-function highlightTOC(){
-  document.querySelectorAll('.toc-page').forEach(el => el.classList.toggle('on', +el.dataset.page === page));
-  const si = flat[(page-1)*CARDS_PER_PAGE] ? flat[(page-1)*CARDS_PER_PAGE].si : 0;
-  document.querySelectorAll('.toc-sec-title').forEach(el =>
-    el.classList.toggle('on', +el.dataset.si === si));
-}
-
 function draw(){
   page = Math.min(Math.max(1, page), totalPages);
   const start = (page-1)*CARDS_PER_PAGE;
@@ -310,7 +253,6 @@ function draw(){
   applyStyle();
   if(allShown) showAll(true);
   highlightTab();
-  highlightTOC();
   bindBlanks();
   window.scrollTo({top:0, behavior:'smooth'});
 }
@@ -376,7 +318,6 @@ document.getElementById('styleInput').onclick = ()=>{
 document.getElementById('fsPlus').onclick = ()=>{ fontSize=Math.min(fontSize+1.5,24); setFS(); };
 document.getElementById('fsMinus').onclick = ()=>{ fontSize=Math.max(fontSize-1.5,13); setFS(); };
 function setFS(){ document.querySelectorAll('.kb-module').forEach(el=>el.style.fontSize=fontSize+'px'); }
-document.getElementById('btnToc').onclick = ()=> document.body.classList.toggle('nav');
 
 document.addEventListener('keydown', e=>{
   if(e.target.tagName==='INPUT') return;
@@ -385,7 +326,7 @@ document.addEventListener('keydown', e=>{
 });
 
 if(DATA && DATA.sections){
-  renderTabs(); renderNote(); buildTOC(); draw();
+  renderTabs(); renderNote(); draw();
 } else {
   document.getElementById('content').innerHTML =
     '<div style="padding:60px;text-align:center;color:#888;font-family:sans-serif">' +
